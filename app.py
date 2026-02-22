@@ -62,7 +62,8 @@ def advice(cat):
 # ----------------------------
 # UI
 # ----------------------------
-st.title("Chelsea Air Quality — Easy View")
+st.title("ClearSky Chelsea")
+st.subheader("Real-Time Community Air Health")
 
 # Refresh button
 if st.button("Refresh latest readings"):
@@ -95,26 +96,13 @@ overall_pm = latest["pm25"].mean()
 overall_cat = pm25_category(overall_pm)
 st.info(f"Overall Chelsea right now: {overall_cat} (Avg PM2.5: {overall_pm:.1f} µg/m³)")
 
-# Last-hour change (uses last 2 datapoints per sensor)
-recent = (
-    df.sort_values("timestamp_local")
-      .groupby("sn")
-      .tail(2)
-      .dropna(subset=["pm25"])
-)
-
-def change_last_two(group):
-    if len(group) < 2:
-        return pd.Series({"change": 0.0})
-    return pd.Series({"change": group["pm25"].iloc[-1] - group["pm25"].iloc[0]})
-
-change_df = recent.groupby("sn").apply(change_last_two).reset_index()
-latest = latest.merge(change_df, on="sn", how="left")
-latest["change"] = latest["change"].fillna(0.0)
-
-# Biggest improvement banner (most negative change)
-improved = latest.sort_values("change").iloc[0]
-st.success(f"Biggest improvement (last two readings): {improved['label']} ({improved['change']:.1f} µg/m³)")
+# ✅ Option A: Replace "biggest improvement" with "highest PM2.5 right now"
+latest_pm = latest.dropna(subset=["pm25"]).copy()
+if len(latest_pm) > 0:
+    worst = latest_pm.sort_values("pm25", ascending=False).iloc[0]
+    st.warning(f"Highest PM2.5 right now: {worst['label']} — {worst['pm25']:.1f} µg/m³ ({worst['category']})")
+else:
+    st.warning("Highest PM2.5 right now: No data available.")
 
 # Location selector (search by typing)
 selected_label = st.selectbox(
@@ -201,5 +189,4 @@ st.markdown("""
 - Data comes from community air sensors (QuantAQ iSUPER).
 - Low-cost sensors may drift; readings may have gaps.
 - We show the most recent reading per location, plus a simple 24-hour trend.
-- “Biggest improvement” uses the last two readings available per sensor (may not be exactly 60 minutes).
 """)
